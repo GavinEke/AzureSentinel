@@ -6,7 +6,6 @@ let SHA256Hash = dynamic (["5f1de6fb357ee5821e86dfb0c373ea29a600769e8a83b70e77e4
 (union isfuzzy=true
 (CommonSecurityLog 
 | where TimeGenerated >= ago(timeframe) 
-| parse Message with * '(' DNSName ')' * 
 | where isnotempty(FileHash)
 | where FileHash in (SHA256Hash)
 | extend Account = SourceUserID, Host = DeviceName, IPAddress = SourceIP
