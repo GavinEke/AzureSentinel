@@ -1,0 +1,37 @@
+// Azure Sentinel version of God Mode Sigma Rule - https://gist.github.com/Neo23x0/811db09add59068a7a80273d7e5f6e0f
+
+let timeframe = 1d;
+let ProcessCreationEvents=() {
+let processEvents=SecurityEvent
+| where EventID==4688
+| project  TimeGenerated, ComputerName = Computer, AccountName = SubjectUserName, AccountDomain = SubjectDomainName,
+// convert SecurityEvents raw schema to get FileName & CommandLine
+FileName = tostring(split(NewProcessName, '\\')[-1]), ProcessCommandLine = CommandLine, FolderPath = "",
+InitiatingProcessFileName = ParentProcessName, InitiatingProcessCommandLine = "",InitiatingProcessParentFileName = "";
+processEvents;
+};
+ProcessCreationEvents 
+| where TimeGenerated > ago(timeframe)
+// CommandLine commands often used in malicious PowerShell scripts, certutil, Ransomware, ProcDump, Rubeus and Mimikatz
+| where ProcessCommandLine contains " -NoP "
+     or ProcessCommandLine contains " -W Hidden "
+     or ProcessCommandLine contains " -decode " 
+	 or ProcessCommandLine contains " /decode " 
+	 or ProcessCommandLine contains " -e* JAB" 
+	 or ProcessCommandLine contains " -e* SUVYI" 
+	 or ProcessCommandLine contains " -e* SQBFAFgA" 
+	 or ProcessCommandLine contains " -e* aWV4I" 
+	 or ProcessCommandLine contains " -e* aQBlAHgA" 
+	 or ProcessCommandLine contains "vssadmin delete shadows" 
+	 or ProcessCommandLine contains "reg SAVE HKLM\SAM" 
+	 or ProcessCommandLine contains " -ma " 
+	 or ProcessCommandLine contains "Microsoft\Windows\CurrentVersion\Run" 
+	 or ProcessCommandLine contains ".downloadstring(" 
+	 or ProcessCommandLine contains ".downloadfile(" 
+	 or ProcessCommandLine contains " /ticket:" 
+	 or ProcessCommandLine contains " sekurlsa" 
+	 or ProcessCommandLine contains " p::d " 
+	 or ProcessCommandLine contains ";iex(" 
+	 or ProcessCommandLine contains "schtasks* /create *AppData" 
+| summarize StartTimeUtc = min(TimeGenerated), EndTimeUtc = max(TimeGenerated), CountToday = count() by ComputerName, AccountName, AccountDomain, FileName, ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine 
+| extend timestamp = StartTimeUtc, AccountCustomEntity = AccountName, HostCustomEntity = ComputerName
